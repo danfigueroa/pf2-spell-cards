@@ -1,0 +1,12 @@
+{
+  "name": "pf2-spell-cards",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:danfigueroa/pf2-spell-cards.git",
+  "author": "danmfigu <danielmfigueroa@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^2.11.2",
+    "sharp": "^0.33.5"
+  }
+}

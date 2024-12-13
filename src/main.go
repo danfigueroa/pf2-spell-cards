@@ -130,38 +130,35 @@ func drawInfoBox(dc *gg.Context, magic Magic, x, y, width, height float64, fontB
 func drawDetailsBox(dc *gg.Context, magic Magic, x, y, width, height float64, fontBoldPath, fontRegularPath string) {
 	drawRoundedBox(dc, x, y, width, height, color.RGBA{245, 245, 220, 255}, color.RGBA{0, 0, 0, 200}, 2.0)
 
+	// Labels traduzidos
 	keywordsLabel := translateField("Keywords", magic.Language) + ": "
-	keywordsContent := strings.Join(magic.Keywords, ", ")
 	areaLabel := translateField("Area", magic.Language) + ": "
+
+	// Conteúdo das keywords e área
+	keywordsContent := strings.Join(magic.Keywords, ", ")
 	areaContent := magic.Area
-	separator := " | "
 
-	if err := dc.LoadFontFace(fontBoldPath, 24); err != nil {
-		log.Fatalf("Falha ao carregar a fonte %s: %v", fontBoldPath, err)
-	}
-
-	keywordsLabelWidth, _ := dc.MeasureString(keywordsLabel)
-	areaLabelWidth, _ := dc.MeasureString(areaLabel)
-
-	if err := dc.LoadFontFace(fontRegularPath, 24); err != nil {
+	// Carregar fontes para os textos regulares
+	if err := dc.LoadFontFace(fontRegularPath, 20); err != nil {
 		log.Fatalf("Falha ao carregar a fonte %s: %v", fontRegularPath, err)
 	}
 
-	keywordsContentWidth, _ := dc.MeasureString(keywordsContent)
-	separatorWidth, _ := dc.MeasureString(separator)
-	areaContentWidth, _ := dc.MeasureString(areaContent)
+	// Medir largura dos textos
+	keywordsWidth, _ := dc.MeasureString(keywordsLabel + keywordsContent)
+	areaWidth, _ := dc.MeasureString(areaLabel + areaContent)
 
-	totalWidth := keywordsLabelWidth + keywordsContentWidth + separatorWidth + areaLabelWidth + areaContentWidth
-	startX := x + (width-totalWidth)/2
+	// Definir posições horizontais para centralizar
+	keywordsX := x + (width-keywordsWidth)/2
+	areaX := x + (width-areaWidth)/2
+	currentY := y + 20.0 // Posição inicial vertical com padding
 
-	currentY := y + (height+dc.FontHeight())/2
-
+	// Desenhar keywords
 	dc.SetColor(color.Black)
-	dc.DrawString(keywordsLabel, startX, currentY)
-	dc.DrawString(keywordsContent, startX+keywordsLabelWidth, currentY)
-	dc.DrawString(separator, startX+keywordsLabelWidth+keywordsContentWidth, currentY)
-	dc.DrawString(areaLabel, startX+keywordsLabelWidth+keywordsContentWidth+separatorWidth, currentY)
-	dc.DrawString(areaContent, startX+keywordsLabelWidth+keywordsContentWidth+separatorWidth+areaLabelWidth, currentY)
+	dc.DrawString(keywordsLabel+keywordsContent, keywordsX, currentY)
+
+	// Desenhar área
+	currentY += 30.0 // Espaçamento entre as linhas
+	dc.DrawString(areaLabel+areaContent, areaX, currentY)
 }
 
 func drawDescriptionBox(dc *gg.Context, description string, x, y, width, height float64, fontPath string) {
@@ -176,8 +173,24 @@ func drawDescriptionBox(dc *gg.Context, description string, x, y, width, height 
 	startX := x + paddingX
 	startY := y + paddingY
 
-	if err := dc.LoadFontFace(fontPath, 40); err != nil {
-		log.Fatalf("Falha ao carregar a fonte %s: %v", fontPath, err)
+	fontSize := 30.0
+
+	for {
+		if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
+			log.Fatalf("Falha ao carregar a fonte %s: %v", fontPath, err)
+		}
+
+		wrappedText := dc.WordWrap(description, textWidth)
+		totalHeight := float64(len(wrappedText)) * (dc.FontHeight() + 1.5)
+
+		if totalHeight <= height-paddingY {
+			break
+		}
+		fontSize -= 1.0 // Diminui o tamanho da fonte
+		if fontSize < 10.0 {
+			log.Println("Texto muito longo para a caixa, mesmo com fonte mínima.")
+			break
+		}
 	}
 
 	dc.SetColor(color.Black)
@@ -189,6 +202,7 @@ func createMagicCard(magic Magic, outputFile string) {
 	const canvasHeight int = 1920
 	dc := gg.NewContext(canvasWidth, canvasHeight)
 
+	// Caminho da imagem de fundo
 	backgroundPath := fmt.Sprintf("./img/backgrounds/%s.png", strings.ToLower(magic.Tradition))
 	backgroundImage, err := loadImage(backgroundPath)
 	if err != nil {
@@ -196,15 +210,18 @@ func createMagicCard(magic Magic, outputFile string) {
 	}
 	drawFullBackground(dc, backgroundImage, canvasWidth, canvasHeight)
 
+	// Fontes
 	fontBoldPath := "fonts/OpenSans-Bold.ttf"
 	fontRegularPath := "fonts/OpenSans-Regular.ttf"
 
+	// Caixa de Informações (Nome, Level e Actions)
 	infoBoxX := 50.0
 	infoBoxY := 50.0
 	infoBoxWidth := float64(canvasWidth) - 2*infoBoxX
 	infoBoxHeight := 200.0
 	drawInfoBox(dc, magic, infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight, fontBoldPath, fontRegularPath)
 
+	// Imagem da Magia
 	img, err := loadImage(magic.Image)
 	if err != nil {
 		log.Fatalf("Falha ao carregar a imagem da magia: %v", err)
@@ -216,24 +233,30 @@ func createMagicCard(magic Magic, outputFile string) {
 	drawRoundedBox(dc, float64(imageX), float64(imageY), float64(imageWidth), float64(imageHeight), color.Transparent, color.RGBA{245, 245, 220, 255}, 10.0)
 	dc.DrawImage(resizeImageToFill(img, imageWidth, imageHeight), imageX, imageY)
 
+	// Caixa de Detalhes (Keywords e Área)
 	detailsBoxX := 50.0
 	detailsBoxY := float64(imageY + imageHeight + 30)
 	detailsBoxWidth := float64(canvasWidth) - 2*detailsBoxX
 	detailsBoxHeight := 60.0
 	drawDetailsBox(dc, magic, detailsBoxX, detailsBoxY, detailsBoxWidth, detailsBoxHeight, fontBoldPath, fontRegularPath)
 
+	// Caixa de Descrição
 	descriptionBoxX := 50.0
 	descriptionBoxY := detailsBoxY + detailsBoxHeight + 30
 	descriptionBoxWidth := float64(canvasWidth) - 2*descriptionBoxX
 	descriptionBoxHeight := float64(canvasHeight) - descriptionBoxY - 60.0
 	drawDescriptionBox(dc, magic.Description, descriptionBoxX, descriptionBoxY, descriptionBoxWidth, descriptionBoxHeight, fontRegularPath)
 
-	err = dc.SavePNG(outputFile)
+	// Caminho do arquivo de saída na pasta "img/cards"
+	outputFilePath := fmt.Sprintf("./img/cards/%s.png", outputFile)
+
+	// Salvar o card
+	err = dc.SavePNG(outputFilePath)
 	if err != nil {
 		log.Fatalf("Falha ao salvar o card: %v", err)
 	}
 
-	fmt.Printf("Card salvo em %s\n", outputFile)
+	fmt.Printf("Card salvo em %s\n", outputFilePath)
 }
 
 func main() {
@@ -245,7 +268,7 @@ func main() {
 		Keywords:    []string{"Ataque", "Frio", "Evocação", "Bom", "Luz"},
 		Tradition:   "Primal",
 		Area:        "Alcance de 36 metros; 1 criatura",
-		Description: "Você libera um raio sagrado de luz congelante da lua. Faça um ataque de magia à distância. O raio causa 5d6 de dano frio; se o alvo for um demônio ou morto-vivo, você causa 5d6 de dano bom adicional. O dano frio do raio de luz lunar é considerado dano de prata para fins de resistências, fraquezas e similares. \n\nSucesso Crítico: O alvo sofre o dobro do dano frio e também o dobro do dano bom, se for um demônio ou morto-vivo. \nSucesso: O alvo sofre o dano total. \n\nSe a luz atravessar uma área de escuridão mágica ou atingir uma criatura afetada por escuridão mágica, o raio de luz lunar tenta neutralizar a escuridão. Para determinar se a luz passa por uma área de escuridão, trace uma linha entre você e o alvo da magia. \n\nAprimorada (+1): O dano frio aumenta em 2d6, e o dano bom contra demônios e mortos-vivos aumenta em 2d6.",
+		Description: "Você libera um raio sagrado de luz congelante da lua. Faça um ataque de magia à distância. O raio causa 5d6 de dano frio; se o alvo for um demônio ou morto-vivo, você causa 5d6 de dano bom adicional. O dano frio do raio de luz lunar é considerado dano de prata para fins de resistências, fraquezas e similares. \n\nSucesso Crítico: O alvo sofre o dobro do dano frio e também o dobro do dano bom, se for um demônio ou morto-vivo. \nSucesso: O alvo sofre o dano total. \n\nSe a luz atravessar uma área de escuridão mágica ou atingir uma criatura afetada por escuridão mágica, o raio de luz lunar tenta neutralizar a escuridão. Para determinar se a luz passa por uma área de escuridão, trace uma linha entre você e o alvo da magia. \n\n\n\nAprimorada (+1): O dano frio aumenta em 2d6, e o dano bom contra demônios e mortos-vivos aumenta em 2d6.",
 		Language:    "pt",
 	}
 
